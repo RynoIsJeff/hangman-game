@@ -1,69 +1,79 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
+import dictionary from './dictionary.txt';
 
 function App() {
-  // State variables
-  const [word, setWord] = useState(''); // The random word to be guessed
-  const [guessedLetters, setGuessedLetters] = useState([]); // Array of guessed letters
-  const [remainingAttempts, setRemainingAttempts] = useState(7); // Number of remaining attempts
-  const [gameState, setGameState] = useState('playing'); // Current game state ('playing', 'lost')
-  const [hangmanState, setHangmanState] = useState(1); // Current hangman state (used for rendering hangman image)
+  const [word, setWord] = useState(''); // Stores the current word to guess
+  const [guessedLetters, setGuessedLetters] = useState([]); // Stores the letters that have been guessed
+  const [remainingAttempts, setRemainingAttempts] = useState(7); // Stores the number of remaining attempts
+  const [gameState, setGameState] = useState('playing'); // Stores the state of the game: 'playing', 'won', or 'lost'
+  const [hangmanState, setHangmanState] = useState(1); // Stores the current state of the hangman image
 
   useEffect(() => {
-    // Load the dictionary and pick a random word
-    fetch('/dictionary.txt')
-      .then((response) => response.text())
-      .then((data) => {
-        const words = data.split('\n');
-        const randomIndex = Math.floor(Math.random() * words.length);
-        setWord(words[randomIndex]);
-      });
+    fetchWordFromDictionary(); // Fetches a word from the dictionary when the component mounts
   }, []);
 
-  const handleLetterGuess = (letter) => {
-    if (gameState !== 'playing') return; // Ignore letter guesses if the game is not in the 'playing' state
-    const normalizedLetter = letter.toLowerCase();
+  const fetchWordFromDictionary = () => {
+    fetch(dictionary) // Fetches the dictionary file
+      .then((response) => response.text())
+      .then((data) => {
+        const words = data.split('\n'); // Splits the data into an array of words
+        const randomIndex = Math.floor(Math.random() * words.length); // Generates a random index within the range of words array
+        setWord(words[randomIndex]); // Sets a random word as the current word to guess
+      })
+      .catch((error) => {
+        console.log('Error fetching dictionary:', error);
+      });
+  };
 
-    if (guessedLetters.includes(normalizedLetter)) return; // Ignore letter guesses that have already been made
+  const handleLetterGuess = (guess) => {
+    if (gameState !== 'playing') return; // If the game is not in the 'playing' state, do nothing
 
-    setGuessedLetters([...guessedLetters, normalizedLetter]); // Add the guessed letter to the array
+    const normalizedGuess = guess.toLowerCase(); // Convert the guess to lowercase
 
-    if (!word.includes(normalizedLetter)) {
-      // Incorrect guess
-      setRemainingAttempts(remainingAttempts - 1); // Decrement the remaining attempts
-      setHangmanState(hangmanState + 1); // Increment the hangmanState
+    if (guessedLetters.includes(normalizedGuess)) return; // If the letter has already been guessed, do nothing
+
+    const newGuessedLetters = [...guessedLetters, normalizedGuess];
+    setGuessedLetters(newGuessedLetters); // Add the new guess to the list of guessed letters
+
+    const currentGuessedWord = guessedWord();
+
+    if (currentGuessedWord === word) {
+      setGameState('won'); // If the current guessed word is equal to the word, set the game state to 'won'
+      return; // Exit the function early if the game is won
+    }
+
+    if (!word.toLowerCase().includes(normalizedGuess)) {
+      setRemainingAttempts(remainingAttempts - 1); // Reduce the number of remaining attempts if the guessed letter is incorrect
+      setHangmanState(hangmanState + 1); // Increment the hangman state to display the next hangman image
 
       if (remainingAttempts - 1 === 0) {
-        // No remaining attempts, set game state to 'lost'
-        setGameState('lost');
+        setGameState('lost'); // If there are no remaining attempts, set the game state to 'lost'
       }
     }
   };
 
-  const handleRestart = () => {
-    // Restart the game by resetting all state variables
-    setWord('');
-    setGuessedLetters([]);
-    setRemainingAttempts(11);
-    setGameState('playing');
-    setHangmanState(1); // Reset the hangmanState
+  const guessedWord = () => {
+    return word
+      .split('')
+      .map((letter) =>
+        guessedLetters.includes(letter.toLowerCase()) ? letter : '_' // Replaces the letters that have not been guessed with underscores
+      )
+      .join('');
   };
 
-  const renderWordDisplay = () => {
-    // Render the word display with guessed letters and underscores
-    return word.split('').map((letter, index) => {
-      const isLetterGuessed = guessedLetters.includes(letter.toLowerCase());
-      return (
-        <span key={index} className="letter">
-          {isLetterGuessed ? letter : '_'}
-        </span>
-      );
-    });
+  const handleRestart = () => {
+    setWord(''); // Reset the word
+    setGuessedLetters([]); // Reset the guessed letters
+    setRemainingAttempts(7); // Reset the remaining attempts
+    setGameState('playing'); // Set the game state to 'playing'
+    setHangmanState(1); // Reset the hangman state
+    fetchWordFromDictionary(); // Fetch a new word from the dictionary
   };
 
   const renderHangman = () => {
-    // Render the hangman sketch based on the hangmanState
     const hangmanImages = [
+      // An array of hangman images, each represented as a multi-line string
       `
        _____
       |     |
@@ -122,14 +132,20 @@ function App() {
       `
     ];
 
-    return <pre className="hangman">{hangmanImages[hangmanState - 1]}</pre>;
+    return <pre className="hangman">{hangmanImages[hangmanState - 1]}</pre>; // Renders the hangman image based on the current hangman state
   };
 
   return (
     <div className="App">
       <h1>Hangman Game</h1>
+      <p>After completing the word, simply tap enter to end the game!</p>
+      {gameState === 'won' && <h2>You Won!</h2>}
+      {gameState === 'lost' && <h2>You Lost!</h2>}
+      {gameState !== 'playing' && (
+        <button onClick={handleRestart}>New Game</button>
+      )}
       <div className="hangman">{renderHangman()}</div>
-      <div className="word-display">{renderWordDisplay()}</div>
+      <div className="word-display">{guessedWord()}</div>
       <div className="guessed-letters">
         <p>Guessed Letters: {guessedLetters.join(', ')}</p>
       </div>
@@ -149,12 +165,6 @@ function App() {
             }}
             maxLength={1}
           />
-        </div>
-      )}
-      {gameState === 'lost' && (
-        <div>
-          <h2>You Lost!</h2>
-          <button onClick={handleRestart}>New Game</button>
         </div>
       )}
     </div>
