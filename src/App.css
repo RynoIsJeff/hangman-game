@@ -21,3 +21,12 @@ button {
   margin-top: 20px;
   padding: 10px 20px;
 }
+
+.instructions {
+  margin: 20px 0;
+  text-align: left;
+}
+
+.hangman {
+  font-family: monospace;
+}
